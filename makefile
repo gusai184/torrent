@@ -8,3 +8,6 @@ tracker.o: tracker.cpp
 
 command.o: commands.cpp
 	g++ -c commands.cpp
+
+r:
+	rm tracker.o commands.o 

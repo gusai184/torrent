@@ -20,8 +20,23 @@ class User
 	public:
 		string username;
 		string password;
+		bool isOnline;
 		vector<string> groups;
-		struct sockaddr address; 
+		struct sockaddr_in address; 
+
+	public:
+		bool containsGroup(string gid)
+		{			
+			vector<string> groups = this->groups;
+			int i;
+			for(i = 0; i < groups.size(); i++)
+			{
+				if(groups[i] == gid)
+					return true;
+			}
+
+			return false;
+		}
 };
 
 class Group
@@ -31,22 +46,35 @@ class Group
 		string owner;
 		vector<string> members;	//member user ids
 		vector<string> requests; //peding joing requests
+
+	public:
+		bool containsUser(string uid)
+		{
+			vector<string> users = this->members;
+			int i;
+			for(int i = 0; i < users.size(); i++)
+			{
+				if(users[i] == uid)
+					return true;
+			}
+			return false;
+		}
 };
 
+void init();
 
-
-string executeCommand(string command);
+string executeCommand(string command, int fd);
 
 vector<string> commandTokenize(string command);
 
-void createUser(vector<string> tokens);
+void createUser(vector<string> tokens, int fd);
 
 void createGroup(vector<string> tokens);
 
 void joinGroup(vector<string> tokens);
 
-void listRequests(vector<string> tokens);
+string listRequests(vector<string> tokens);
 
 void logout();
 
-void listGroups();
+string listGroups();

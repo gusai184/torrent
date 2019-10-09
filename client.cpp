@@ -14,6 +14,7 @@ int main(int argc, char *argv[]) {
    struct hostent *server;
    
    char buffer[256];
+   bool islogout=false;
    
    if (argc < 3) {
       fprintf(stderr,"usage %s hostname port\n", argv[0]);
@@ -64,6 +65,9 @@ int main(int argc, char *argv[]) {
       //fgets(buffer,255,stdin);
       cin.getline(buffer,BUFFER_SIZE);
       
+      if(strcmp(buffer,"logout")==0)
+        islogout = true;
+
       n = send(sockfd, buffer, strlen(buffer),0);
       if (n < 0) {
         perror("ERROR writing to socket");
@@ -77,11 +81,12 @@ int main(int argc, char *argv[]) {
         perror("Error Reading from tracker socket");
         exit(1);
       }
+
       cout<<buffer<<":"<<endl;
-      if(strcmp(buffer,"Exit")==0)
-      {
-        break;
-      }
+      if(islogout)
+      	exit(1);
+     
+
    }
 
   
