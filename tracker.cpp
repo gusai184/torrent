@@ -1,14 +1,13 @@
 #include "header.h"
 unordered_map<int, struct sockaddr_in> fdsockmap;
 
-inline void errorchecking(int n)
-{
-	if(n<0)
-    {
-      perror("Error while communicating to client ");
-      exit(1);
-    } 
-}
+ void errorchecking(int n)
+ {
+ 	if(n<0)
+ 	{
+ 		perror("Error while seding data");
+ 	}
+ }
 int main( int argc, char *argv[] ) {
    int tracker_fd, client_fd, portno, clilen;
    char buffer[256];		
@@ -25,7 +24,7 @@ int main( int argc, char *argv[] ) {
    
    /* Initialize socket structure */
    bzero((char *) &server_address, sizeof(server_address));
-   portno = 5001;
+   portno = 5002;
    
    server_address.sin_family = AF_INET;
    server_address.sin_addr.s_addr = INADDR_ANY;
@@ -44,22 +43,27 @@ int main( int argc, char *argv[] ) {
    listen(tracker_fd,SOMAXCONN);
    clilen = sizeof(client_address);
    
-
-
+   vector<int> clients;
    fd_set fdset;
-   FD_ZERO(&fdset);
-   FD_SET(tracker_fd, &fdset );
-   int maxfd=2;
    
    init();
 
    while(1)
-   {
-
-   
-      fd_set cfdset = fdset;
+   {   	 
+   	  FD_ZERO(&fdset);
+   	  FD_SET(tracker_fd, &fdset);
+      int maxfd=tracker_fd;
       
-      int countfd = select(50, &cfdset, NULL, NULL, NULL);
+      for(int i=0;i<clients.size();i++)
+      {
+      	int sd = clients[i];      
+      	FD_SET(sd, &fdset);
+      	if(sd > maxfd)
+      		maxfd = sd;
+      }
+
+
+      int countfd = select(maxfd + 1, &fdset, NULL, NULL, NULL);
     
       if(countfd < 0)
       {
@@ -67,83 +71,66 @@ int main( int argc, char *argv[] ) {
          exit(1);
       }
 
-      if(FD_ISSET(tracker_fd , &cfdset))
+      if(FD_ISSET(tracker_fd , &fdset))
       {
         
          client_fd = accept(tracker_fd, (struct sockaddr *)&client_address,(socklen_t *)&clilen);
          printf("New connection , socket fd is %d , ip is : %s , port : %d\n" , client_fd , inet_ntoa(client_address.sin_addr) , ntohs 
                   (client_address.sin_port));   
+
          if (client_fd < 0) {
             perror("ERROR on accept");
             exit(1);
          }
          fdsockmap[client_fd] = client_address;
          send(client_fd,"connection established",sizeof("connection established"),0);
-        
+         clients.push_back(client_fd);
       }
-      else
-      {
-         for(int i=0;i<50;i++)
-         {
-            int client_fd = i;
-            if(FD_ISSET(client_fd, &cfdset))
+  
+     for(int i=0;i<clients.size();i++)
+     {
+        int client_fd = clients[i];
+        if(FD_ISSET(client_fd, &fdset))
+        {
+          // cout<<"socket "<<client_fd<<endl;
+            bzero(buffer, BUFFER_SIZE);
+            int n =read(client_fd, buffer, BUFFER_SIZE);
+           
+            if(n==0)
             {
-               cout<<"socket "<<client_fd<<endl;
-               bzero(buffer, BUFFER_SIZE);
-               int n =read(client_fd, buffer, BUFFER_SIZE);
-               errorchecking(n);
-               
-               if(n==0)
-               {
-               		cout<<"client disconnetcted : "<<endl;
-               		close(client_fd);
-               }
-               cout<<"Got message "<<buffer<<endl;
 
-               try{
+				struct sockaddr_in client_address = fdsockmap[client_fd];
+				cout << "client disconnected : "<<inet_ntoa(client_address.sin_addr) <<" : "<< ntohs(client_address.sin_port) <<endl;           		
+           		close(client_fd);
+           		clients.erase(clients.begin() + i);             		
+            }
+            else if(n<0)
+		    {
+		        perror("Error while communicating to client ");
+		        close(client_fd);
+		        clients.erase(clients.begin() + i);			       
+		    } 
+		    else
+		    {
+            	cout<<"Got message "<<buffer<<endl;
+                try{
                   string msg = executeCommand(string(buffer), client_fd);
-                  cout<<msg<<endl;
+                  //cout<<msg<<endl;
                   int n = send(client_fd,msg.c_str(), msg.length(),0);
-               	  errorchecking(n);
+                  errorchecking(n);
 
-               }
-               catch(string error_msg)
-               {
-                  cout<<"Erro : "<<error_msg<<endl;
+                }
+                catch(string error_msg)
+                {
+                //  cout<<"Erro : "<<error_msg<<endl;
                   int n = send(client_fd,error_msg.c_str(), error_msg.length(),0);
             	  errorchecking(n);
-               }
+                }
             }
-         }
+        }
       }
-      FD_SET(client_fd, &fdset);
-   }
-
-
-   /* Accept actual connection from the client */
-   
-   
-   // /* start communicating */
-   // while(1)
-   // {
-   //    bzero(buffer,256);
-   //    n = read( client_fd,buffer,255 );
-      
-   //    if (n < 0) {
-   //       perror("ERROR reading from socket");
-   //       exit(1);
-   //    }
-      
-   //    printf("Here is the command: %s\n",buffer);
-
-   //    if(strcmp(buffer,"Exit")==0)
-   //    {
-   //      break;
-   //    }
-   // }    
-
-
- 
+    }
+    
    close(tracker_fd);
    return 0;
 }

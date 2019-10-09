@@ -84,8 +84,7 @@ int main(int argc, char *argv[]) {
 
       cout<<buffer<<":"<<endl;
       if(islogout)
-      	exit(1);
-     
+      	exit(1);   
 
    }
 

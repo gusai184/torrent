@@ -77,6 +77,7 @@ void authenticateUser(vector<string> tokens, int fd)
 		current_user = username;
 		user.address = fdsockmap[fd];
 		user.isOnline = true;
+		usermap[username] = user;
 	}
 
 }
@@ -115,6 +116,30 @@ string listRequests(vector<string> tokens)
 
 	return list_req;
 
+}
+
+void acceptRequests(vector<string> tokens)
+{
+	string gid = tokens[1];
+	string uid = tokens[2];
+	int i;
+	Group group = groupmap[gid];
+	//remove(group.requests.begin(), group.requests.end(), uid);
+	for(i=0;i<group.requests.size();i++)
+	{
+		if(uid == group.requests[i])
+			break;
+	}
+	if(i < group.requests.size())
+	{
+		group.requests.erase(group.requests.begin() + i);
+		group.members.push_back(uid);
+		groupmap[gid] = group;
+	}
+	else
+	{
+		throw string("Invalid userid");
+	}
 }
 
 void createGroup(vector<string> tokens)
@@ -181,6 +206,7 @@ void logout()
 {
 	User usr = usermap[current_user];
 	usr.isOnline = false;
+	usermap[usr.username] = usr;
 	current_user = "";
 }
 
@@ -212,7 +238,9 @@ void printUsers()
 		{
 			cout<<grp<<" ";
 		}
-		cout <<" : "<< inet_ntoa(usr.second.address.sin_addr) <<"  "<< ntohs(usr.second.address.sin_port) <<" : "<< usr.second.isOnline<<endl;
+		cout <<" : "<< inet_ntoa(usr.second.address.sin_addr) <<"  "<< ntohs(usr.second.address.sin_port) <<" : ";
+		usr.second.isOnline == true ? cout << "True" : cout << "False";
+		cout<<endl;
 	}
 	cout<<endl;
 }
@@ -238,14 +266,21 @@ void init()
 	u1.username = "dhamo";
 	u1.password = "123";
 	u1.groups.push_back("g1");
+	u1.isOnline = false;
 
 	User u2;
 	u2.username = "xyz";
 	u2.password = "123";
-	
+	u2.isOnline = false;
+
+	User u3;
+	u3.username = "smit";
+	u3.password = "123";
+	u3.isOnline = false;
 
 	usermap[u1.username] = u1;
 	usermap[u2.username] = u2;
+	usermap[u3.username] = u3;
 	
 	Group g1;
 	g1.gid = "g1";
@@ -258,16 +293,36 @@ void init()
 	printGroups();
 }
 
+
+string getCurrentUser(struct sockaddr_in client_address)
+{
+	for(auto x : usermap)
+	{
+		User user = x.second;
+		if(user.address.sin_addr.s_addr == client_address.sin_addr.s_addr && user.address.sin_port == client_address.sin_port && user.isOnline)
+		{
+			return user.username;
+		}
+	}
+	return string("Annonymous");
+}
+
+
 string executeCommand(string command, int client_fd)
 {
 	//printUsers();
 	string success_msg="command executed";
 //	cout<<"current user "<<current_user<<endl;
 	struct sockaddr_in client_address = fdsockmap[client_fd];
-	cout << "client socket address is "<<inet_ntoa(client_address.sin_addr) <<" : "<< ntohs(client_address.sin_port) <<endl;
+	current_user = getCurrentUser(client_address);
+	cout << "client "<<current_user <<" : "<<inet_ntoa(client_address.sin_addr) <<" : "<< ntohs(client_address.sin_port) <<endl;
+	if(current_user== "Annonymous")
+	{
+		current_user = "";
+	}
+
 	try
 	{
-
 		vector<string> tokens = commandTokenize(command);
 		
 		string command_name = tokens[0];
@@ -275,15 +330,12 @@ string executeCommand(string command, int client_fd)
 		{
 			createUser(tokens, client_fd);
 			printUsers();
-			success_msg = "User account created successfully";
-		
+			success_msg = "User account created successfully";		
 		}
 		else if(command_name == "login")
-		{
-			
+		{		
 			authenticateUser(tokens, client_fd);
-			success_msg = "Logged in successfully";
-			
+			success_msg = "Logged in successfully";		
 		}
 		else if(command_name ==  "create_group")
 		{
@@ -293,7 +345,8 @@ string executeCommand(string command, int client_fd)
 		}
 		else if(command_name == "list_groups")
 		{
-			listGroups();
+			success_msg = listGroups();
+			printGroups();
 		}
 		else if(command_name == "join_group")
 		{
@@ -303,6 +356,11 @@ string executeCommand(string command, int client_fd)
 		else if(command_name == "list_requests")
 		{
 			success_msg = listRequests(tokens);
+		}
+		else if(command_name == "accept_request")
+		{
+			acceptRequests(tokens);
+			success_msg = "Requests accepted successfully";
 		}
 		else if(command_name == "logout")
 		{

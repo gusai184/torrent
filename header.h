@@ -1,4 +1,5 @@
 #include <stdio.h>
+#include <algorithm>
 #include <stdlib.h>
 #include <vector>
 #include <unordered_map>
