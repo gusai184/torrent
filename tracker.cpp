@@ -24,7 +24,7 @@ int main( int argc, char *argv[] ) {
    
    /* Initialize socket structure */
    bzero((char *) &server_address, sizeof(server_address));
-   portno = 5002;
+   portno = 5000;
    
    server_address.sin_family = AF_INET;
    server_address.sin_addr.s_addr = INADDR_ANY;
@@ -35,11 +35,7 @@ int main( int argc, char *argv[] ) {
       perror("ERROR on binding");
       exit(1);
    }
-      
-   /* Now start listening for the clients, here process will
-      * go in sleep mode and will wait for the incoming connection
-   */
-   
+    
    listen(tracker_fd,SOMAXCONN);
    clilen = sizeof(client_address);
    
@@ -105,14 +101,14 @@ int main( int argc, char *argv[] ) {
            		clients.erase(clients.begin() + i);             		
             }
             else if(n<0)
-		    {
-		        perror("Error while communicating to client ");
-		        close(client_fd);
-		        clients.erase(clients.begin() + i);			       
-		    } 
-		    else
-		    {
-            	cout<<"Got message "<<buffer<<endl;
+    		    {
+    		        perror("Error while communicating to client ");
+    		        close(client_fd);
+    		        clients.erase(clients.begin() + i);			       
+    		    } 
+    		    else
+    		    {
+              	cout<<"Got message "<<buffer<<endl;
                 try{
                   string msg = executeCommand(string(buffer), client_fd);
                   //cout<<msg<<endl;
