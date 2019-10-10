@@ -1,0 +1,13 @@
+all:client
+
+client: client.o listener.o
+		g++ listener.o client.o -o client -pthread -lssl -lcrypto
+
+client.o: client.cpp
+		g++ -c client.cpp -pthread -lssl -lcrypto
+
+listener.o: listener.cpp
+	    g++ -c listener.cpp -pthread -lssl -lcrypto
+
+r:
+	rm listener.o client.o

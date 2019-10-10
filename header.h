@@ -79,3 +79,4 @@ string listRequests(vector<string> tokens);
 void logout();
 
 string listGroups();
+

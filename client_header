@@ -1,0 +1,20 @@
+#include <stdio.h>
+#include <stdlib.h>
+#include <unistd.h>
+#include <netdb.h>
+#include <netinet/in.h>
+#include <iostream>
+#include <string.h>
+#include <pthread.h> 
+#define BUFFER_SIZE 256
+
+using namespace std;
+
+
+void readFile(int fd);
+
+void sendFile(int fd);
+
+void *serverthread(void *portnoadd);
+
+void sendFile(int sockfd);

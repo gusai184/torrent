@@ -1,67 +1,11 @@
-#include <stdio.h>
-#include <stdlib.h>
-#include <unistd.h>
-#include <netdb.h>
-#include <netinet/in.h>
-#include <iostream>
-#include <string.h>
-#include <pthread.h> 
-#define BUFFER_SIZE 256
-
-using namespace std;
-
-
-void *serverthread(void *portnoadd)
-{
-
-   int listener_port = *(int *)portnoadd;
-   cout<<"listing at listener_port "<<listener_port<<endl;
-   int listener_fd, peer_fd,  peerlen;
-   char buffer[256];
-   struct sockaddr_in listener_address, peer_address;
-   int  n;
-
-   listener_fd = socket(AF_INET, SOCK_STREAM, 0);
-   
-   if (listener_fd < 0) {
-      perror("ERROR opening socket");
-      exit(1);
-   }
-   
-   bzero((char *) &listener_address, sizeof(listener_address));
-
-   
-   listener_address.sin_family = AF_INET;
-   listener_address.sin_addr.s_addr = INADDR_ANY;
-   listener_address.sin_port = htons(listener_port);
-
-   if (bind(listener_fd, (struct sockaddr *) &listener_address, sizeof(listener_address)) < 0) {
-      perror("ERROR on binding");
-      exit(1);
-   }
-   cout<<"before listen"<<endl;;
-   listen(listener_fd,SOMAXCONN);
-   peerlen = sizeof(peer_address);
-   cout<<"AFTER LISTEN"<<endl;
-   peer_fd = accept(listener_fd, (struct sockaddr *)&peer_address,(socklen_t *)&peerlen);
-	
-   if (peer_fd < 0) {
-      perror("ERROR on accept");
-      exit(1);
-   }
-   cout<<"Connection established";
-   bzero(buffer,BUFFER_SIZE);
-   string temp = "hi";
-   strcpy(buffer, "Connection established to listener");
-   send(peer_fd, buffer, BUFFER_SIZE , 0);
- 
-}
+#include "client_header"
 
 void * downloadingthread(void * port)
 {
-	cout<<"inside downloadingthread";
+	
 	int listener_port = *(int *)port, n, listener_fd;
-	cout<<"connecting to "<<listener_port<<endl;
+	string filename = "abc.txt";
+
 	struct sockaddr_in listener_address;
 	struct hostent *listener_ip;
 	char buffer[BUFFER_SIZE];
@@ -83,25 +27,59 @@ void * downloadingthread(void * port)
     listener_address.sin_family = AF_INET;
     bcopy((char *)listener_ip->h_addr, (char *)&listener_address.sin_addr.s_addr, listener_ip->h_length);
     listener_address.sin_port = htons(listener_port);
-    cout<<"before connect"<<endl;
+    
     if (connect(listener_fd, (struct sockaddr*)&listener_address, sizeof(listener_address)) < 0) {
         cout<<"error no is "<<errno<<endl;
         perror("ERROR connecting");
         return NULL;
     }
    
-    cout<<"reached "<<endl;
+    
     n = recv(listener_fd, buffer, BUFFER_SIZE, 0);
-  
     if (n < 0) {
 
         perror("ERROR writing to socket");
         exit(1);
     }
+
     cout<<"Msg from listener "<<listener_port<< " : "<<buffer<<endl;
-    send(listener_fd, "hibi", 4, 0);
-    cout<<"message sent";
+    send(listener_fd, filename.c_str(), filename.length(), 0);
+	readFile(listener_fd);   
+ 	
  	return NULL;
+}
+
+void readFile(int newsockfd)
+{
+   char buffer[BUFFER_SIZE];
+   bzero(buffer,256);
+   int filesize;
+   int n = recv(newsockfd, &filesize, sizeof(filesize), 0);
+   
+   if (n < 0) {
+      perror("ERROR reading from socket");
+      exit(1);
+   }
+   
+   cout<< "file size is "<<filesize<<endl;
+   
+   FILE *fp = fopen("downloaded","w");
+
+   while(filesize>0 && (n=recv(newsockfd, buffer, BUFFER_SIZE,0))>0  )
+   {	
+   		cout<<"n : "<<n<<endl;
+   		fwrite(buffer, sizeof(char), n, fp);
+   		//printf("%s",buffer);
+   		filesize = filesize - n;
+   }
+
+   if (n < 0) {
+      perror("ERROR while reading file from socket");
+      exit(1);
+   } 
+   cout<<"File downloaded successfully"<<endl;
+   fclose(fp);
+
 }
 
 
@@ -115,9 +93,6 @@ void download_file()
     pthread_create(&thread_id, NULL, downloadingthread, &listener_port); 
 	pthread_join(thread_id, NULL);
 }
-
-
-
 
 int main(int argc, char *argv[]) {
    int tracker_fd, tracker_port, listener_port, n;
