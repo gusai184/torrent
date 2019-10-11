@@ -6,10 +6,11 @@ void *serverthread(void *portnoadd)
 
    int listener_port = *(int *)portnoadd;
    cout<<"listing at listener_port "<<listener_port<<endl;
-   int listener_fd, peer_fd,  peerlen;
-   char buffer[256];
+   int listener_fd, peer_fd,  peerlen, n;
+   char buffer[BUFFER_SIZE];
+   string filename;
    struct sockaddr_in listener_address, peer_address;
-   int  n;
+   vector<int> chunks;
 
    listener_fd = socket(AF_INET, SOCK_STREAM, 0);
    
@@ -47,15 +48,24 @@ void *serverthread(void *portnoadd)
    bzero(buffer,BUFFER_SIZE);
    recv(peer_fd, buffer, BUFFER_SIZE, 0);
 
-   cout<<"File name is "<<buffer<<endl;
-   sendFile(peer_fd);
- 
+   string fd_chunks(buffer);
+   cout<<"File_chunk is "<<fd_chunks<<endl;
+
+   vector<string> tokens = commandTokenize(fd_chunks);
+
+   filename = tokens[0];
+   
+   for(int i=1;i<tokens.size();i++)
+   		chunks.push_back(stoi(tokens[i]));
+
+   sendFile(peer_fd, filename, chunks);
+
 }
 
-void sendFile(int sockfd)
+void sendFile(int peerfd, string filename, vector<int> chunks)
 {
   
-   FILE *fp = fopen("Assignmet_2.pdf","r");
+   FILE *fp = fopen(filename.c_str(),"rb");
    if(fp == NULL)
    {
    		perror("Error while opening file");
@@ -66,25 +76,94 @@ void sendFile(int sockfd)
    char buffer[BUFFER_SIZE];
    rewind(fp);
    cout<<"Beforer file size is"<<filesize;
-   int 	n = send(sockfd,&filesize,sizeof(filesize),0);
+   int 	n = send(peerfd,&filesize,sizeof(filesize),0);
    
    if (n < 0) {
       perror("ERROR writing to socket");
       exit(1);
    }
-     
-   while((n=fread(buffer,sizeof(char), BUFFER_SIZE, fp))>0 && filesize>0)
+
+   for(int i=0;i<chunks.size();i++)
    {
-     int x = send(sockfd, buffer, n, 0);
-      
-      if (x < 0) {
-        perror("ERROR while writing file to socket");
-        exit(1);
-      }
-       //cout<<n<<" bytes send"<<endl;
-       buffer[n]='\0';
-      // printf("%s",buffer);
-       memset(buffer, '\0', BUFFER_SIZE);
-       filesize = filesize - n;
+   		sendChunk(fp, peerfd, chunks[i]); 
+   		recv(peerfd, buffer, BUFFER_SIZE, 0);
+   		cout<<endl<<"here is Ack " <<buffer<<endl;
    }
+   
+
+   fclose(fp);
+
+   // while((n=fread(buffer,sizeof(char), BUFFER_SIZE, fp))>0 && filesize>0)
+   // {
+   //   int x = send(sockfd, buffer, n, 0);
+      
+   //    if (x < 0) {
+   //      perror("ERROR while writing file to socket");
+   //      exit(1);
+   //    }
+   //     //cout<<n<<" bytes send"<<endl;
+   //     buffer[n]='\0';
+   //    // printf("%s",buffer);
+   //     memset(buffer, '\0', BUFFER_SIZE);
+   //     filesize = filesize - n;
+   // }
+}
+
+void sendChunk(FILE * fp ,int peer_fd, int chunkno)
+{
+	char chunk_buffer[CHUNK_SIZE];
+	memset(chunk_buffer, '\0', CHUNK_SIZE);
+	int start_address = chunkno * CHUNK_SIZE, n;
+	
+
+	n = fseek(fp, start_address, SEEK_SET);
+	if(n < 0)
+	{
+		perror("Invalid reading pointer while reading chunkno " + chunkno);
+		return;
+	}
+
+	n = fread(chunk_buffer, sizeof(char), CHUNK_SIZE, fp);
+	if(n < 0)
+	{
+		string error_msg = "Error while reading" + to_string(chunkno) + " chunk from file ";
+		perror(error_msg.c_str());
+		return;
+	}
+	cout<<"n is "<<n<<endl;
+	//cout<<"Ready to send chunk "<<chunkno<<" content "<<chunk_buffer<<endl;
+	cout<<"Ready to send chunk "<<chunkno<<endl;
+	if(n==0)
+	{
+		return;
+	}
+	n = send(peer_fd, chunk_buffer, n, 0);
+	if(n < 0)
+	{
+		perror("Error while sending chunkno " + chunkno);
+		return;
+	}
+
+}
+
+vector<string> commandTokenize(string command)
+{
+   vector<string> v;
+   string word = ""; 
+   for (auto x : command) 
+   { 
+       if (x == ' ') 
+       { 
+           v.push_back(word);
+           word = ""; 
+       } 
+       else
+       { 
+           word = word + x; 
+       } 
+   }  
+
+   v.push_back(word);
+
+   return v;
 }

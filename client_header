@@ -1,20 +1,34 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include <vector>
 #include <unistd.h>
 #include <netdb.h>
 #include <netinet/in.h>
 #include <iostream>
 #include <string.h>
 #include <pthread.h> 
-#define BUFFER_SIZE 256
+#include <cmath>
 
+#define BUFFER_SIZE 1000
+#define CHUNK_SIZE  60000
 using namespace std;
 
+void readFile(int fd, string filename, vector<int> chunks);
 
-void readFile(int fd);
+void sendFile(int sockfd, string filename, vector<int> chunks);
 
-void sendFile(int fd);
+void * serverthread(void *portnoadd);
 
-void *serverthread(void *portnoadd);
+void receiveChunk (FILE * fp ,int peer_fd, int chunkno);
 
-void sendFile(int sockfd);
+void sendChunk (FILE * fp ,int peer_fd, int chunkno);
+
+vector<string> commandTokenize(string command);
+
+struct  args_struct
+{
+	string filename;
+	string ip;
+	int port;
+	vector<int> chunks;
+};

@@ -1,14 +1,25 @@
 #include "client_header"
 
-void * downloadingthread(void * port)
+void * downloadingthread(void * args_passed)
 {
+	cout<<"INSIDE downloadingthread"<<endl;
 	
-	int listener_port = *(int *)port, n, listener_fd;
-	string filename = "abc.txt";
-
+	struct args_struct args = * ((struct args_struct *) args_passed);
+	
+	int listener_port, n, listener_fd;
+	string filename;
+	vector<int> chunks;
 	struct sockaddr_in listener_address;
 	struct hostent *listener_ip;
 	char buffer[BUFFER_SIZE];
+
+	listener_port = args.port;
+	filename = args.filename;
+	listener_ip = gethostbyname(args.ip.c_str());
+	chunks = args.chunks;
+	cout<<"chucnks size "<<chunks.size();
+	for(auto c : chunks)
+		cout<<c<<endl;
 
     listener_fd = socket(AF_INET, SOCK_STREAM, 0);
     if (listener_fd < 0) {
@@ -17,7 +28,7 @@ void * downloadingthread(void * port)
         exit(1);
     }
 	
-    listener_ip = gethostbyname("127.0.0.1");
+    
     if (listener_ip == NULL) {
         fprintf(stderr,"ERROR, no such host\n");
         exit(0);
@@ -43,19 +54,27 @@ void * downloadingthread(void * port)
     }
 
     cout<<"Msg from listener "<<listener_port<< " : "<<buffer<<endl;
-    send(listener_fd, filename.c_str(), filename.length(), 0);
-	readFile(listener_fd);   
+
+    string file_chunks = filename;
+    for(auto chunk_no : chunks)
+    	file_chunks = file_chunks+" "+ to_string(chunk_no);
+    
+    cout<<file_chunks<<endl;
+    
+    send(listener_fd, file_chunks.c_str(), file_chunks.length(), 0);
+	
+	readFile(listener_fd, filename, chunks);   
  	
  	return NULL;
 }
 
-void readFile(int newsockfd)
+void readFile(int peer_fd, string filename, vector<int> chunks)
 {
    char buffer[BUFFER_SIZE];
-   bzero(buffer,256);
+   bzero(buffer,BUFFER_SIZE);
    int filesize;
-   int n = recv(newsockfd, &filesize, sizeof(filesize), 0);
    
+   int n = recv(peer_fd, &filesize, sizeof(filesize), 0); 
    if (n < 0) {
       perror("ERROR reading from socket");
       exit(1);
@@ -63,35 +82,111 @@ void readFile(int newsockfd)
    
    cout<< "file size is "<<filesize<<endl;
    
-   FILE *fp = fopen("downloaded","w");
+   FILE *fp = fopen(("downloaded_" + filename).c_str(),"r+");
+  // ftruncate(fileno(fp), filesize);   
+   //memset(fp, 0, filesize);
 
-   while(filesize>0 && (n=recv(newsockfd, buffer, BUFFER_SIZE,0))>0  )
-   {	
-   		cout<<"n : "<<n<<endl;
-   		fwrite(buffer, sizeof(char), n, fp);
-   		//printf("%s",buffer);
-   		filesize = filesize - n;
-   }
-
-   if (n < 0) {
-      perror("ERROR while reading file from socket");
-      exit(1);
-   } 
-   cout<<"File downloaded successfully"<<endl;
+    for(int i=0;i<chunks.size();i++)
+    {
+     	receiveChunk(fp ,peer_fd, chunks[i]);	     	
+		string ack ="Ack" + to_string(chunks[i]);
+		send(peer_fd, ack.c_str(), ack.length(), 0);
+    }
+   
    fclose(fp);
+}
+
+void receiveChunk (FILE * fp ,int peer_fd, int chunkno)
+{
+	char chunk_buffer[CHUNK_SIZE];
+	memset(chunk_buffer, '\0', CHUNK_SIZE);
+	int start_address = chunkno * CHUNK_SIZE, n;
+	
+	n = fseek(fp, start_address, SEEK_SET);
+	if(n < 0)
+	{
+		perror("Invalid reading pointer while reading chunkno " + chunkno);
+		return;
+	}
+
+    n = recv(peer_fd, &chunk_buffer, CHUNK_SIZE, 0);
+	if(n < 0)
+	{
+		perror("Error while receiving chunk no " + chunkno);
+		return;
+	}
+	
+	cout<<"n is "<<n<<endl;
+	//cout<<"Received Chunk "<<chunkno<<" content"<<chunk_buffer<<endl;
+	cout<<"Received Chunk "<<chunkno<<endl;
+
+	n = fwrite(chunk_buffer, sizeof(char), n, fp);
+	if(n < 0)
+	{
+		perror("Error while writing chunk to file " + chunkno);
+		return;
+	}
 
 }
 
-
 void download_file()
 {
-	int listener_port;
-	cout<<"Enter client port where to download_file"<<endl;
+
+	//parameter will be list of client and file name
+
+	//will create thread for each cilent and ask them what chunks they have 
+
+	//will decide what to get from each client and processed as follows : thread for client ip:port and chuncks to be downloaded
+
+	
+	int listener_port, filesize = 6399562;
+	string filename = "img.JPG";
+	vector<int> chunks, chunks1;
+	cout<<"Enter client 1 port where to download_file"<<endl;
 	cin>>listener_port;
 	cin.ignore();  
+
+	 FILE *fp = fopen(("downloaded_" + filename).c_str(),"wb");
+     //memset(fp, 0, filesize);
+     fclose(fp);
+
+    int no_chunks = ceil((float)filesize / CHUNK_SIZE);
+    
+    for(int i=0;i<no_chunks;i++)
+		chunks.push_back(i);
+	
+	struct args_struct args, args1;
+	args.port = listener_port;
+	args.ip = "127.0.0.1";
+	args.chunks = chunks;
+	args.filename = filename;
+
+	cout<<"bERFOR THREAD"<<endl;
 	pthread_t thread_id; 
-    pthread_create(&thread_id, NULL, downloadingthread, &listener_port); 
+    pthread_create(&thread_id, NULL, downloadingthread, (void *)&args); 
+	
+ //    int listener_port1;
+	// cout<<"Enter client 2 port where to download_file"<<endl;
+	// cin>>listener_port1;
+	// cin.ignore();  
+
+	// chunks1.push_back(1);
+	// chunks1.push_back(3);
+	// chunks1.push_back(4);
+
+	
+	// args1.port = listener_port1;
+	// args1.ip = "127.0.0.1";
+	// args1.chunks = chunks1;
+	// args1.filename = filename;
+
+	// pthread_t thread_id1; 
+ //    pthread_create(&thread_id1, NULL, downloadingthread, (void *)&args1); 
+
+
 	pthread_join(thread_id, NULL);
+//	pthread_join(thread_id1, NULL);
+
 }
 
 int main(int argc, char *argv[]) {
@@ -99,7 +194,7 @@ int main(int argc, char *argv[]) {
    struct sockaddr_in tracker_address;
    struct hostent *tracker_ip;
    
-   char buffer[256];
+   char buffer[BUFFER_SIZE];
    bool islogout=false;
 
    cout<<"Enter client's  listing port "<<endl;
@@ -128,7 +223,7 @@ int main(int argc, char *argv[]) {
       fprintf(stderr,"ERROR, no such host\n");
       exit(0);
    }
-   
+ 
    bzero((char *) &tracker_address, sizeof(tracker_address));
    tracker_address.sin_family = AF_INET;
    bcopy((char *)tracker_ip->h_addr, (char *)&tracker_address.sin_addr.s_addr, tracker_ip->h_length);
@@ -181,7 +276,7 @@ int main(int argc, char *argv[]) {
       cout<<buffer<<":"<<endl;
       if(islogout)
       	exit(1);   
-   }
+  }
 
    pthread_join(thread_id, NULL);
    return 0;
