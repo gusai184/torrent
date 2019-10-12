@@ -3,14 +3,10 @@
 
 void *serverthread(void *portnoadd)
 {
-
    int listener_port = *(int *)portnoadd;
    cout<<"listing at listener_port "<<listener_port<<endl;
-   int listener_fd, peer_fd,  peerlen, n;
-   char buffer[BUFFER_SIZE];
-   string filename;
+   int listener_fd,   peerlen, n;
    struct sockaddr_in listener_address, peer_address;
-   vector<int> chunks;
 
    listener_fd = socket(AF_INET, SOCK_STREAM, 0);
    
@@ -34,13 +30,32 @@ void *serverthread(void *portnoadd)
    listen(listener_fd,SOMAXCONN);
    peerlen = sizeof(peer_address);
    
-   peer_fd = accept(listener_fd, (struct sockaddr *)&peer_address,(socklen_t *)&peerlen);
-	
-   if (peer_fd < 0) {
-      perror("ERROR on accept");
-      exit(1);
+   while(1)
+   {
+      int *peer_fd_ptr= (int *)malloc(sizeof(int));
+      *peer_fd_ptr = accept(listener_fd, (struct sockaddr *)&peer_address,(socklen_t *)&peerlen);
+
+      if (*peer_fd_ptr < 0) {
+         perror("ERROR on acceptingg peer request");
+         continue;
+      }
+
+      
+
+      pthread_t thread_id; 
+      pthread_create(&thread_id, NULL, sendingthread, (void *)peer_fd_ptr); 
    }
-   cout<<"listener Connection established to "<<ntohs(peer_address.sin_port)<<endl;
+
+}
+
+void * sendingthread(void * peer_fd_ptr)
+{
+   int peer_fd = *(int *)peer_fd_ptr;
+   char buffer[BUFFER_SIZE];
+   string filename;
+   vector<int> chunks;
+   
+   cout<<"listener thread Connection established to "<<endl;
    bzero(buffer,BUFFER_SIZE);
    strcpy(buffer, "Connection established to listener");
    send(peer_fd, buffer, BUFFER_SIZE , 0);
@@ -56,7 +71,7 @@ void *serverthread(void *portnoadd)
    filename = tokens[0];
    
    for(ll i=1;i<tokens.size();i++)
-   		chunks.push_back(stoi(tokens[i]));
+         chunks.push_back(stoi(tokens[i]));
 
    sendFile(peer_fd, filename, chunks);
 
@@ -75,8 +90,8 @@ void sendFile(int peerfd, string filename, vector<int> chunks)
    for(ll i=0;i<chunks.size();i++)
    {
    		sendChunk(fp, peerfd, chunks[i]); 
-   		recv(peerfd, buffer, BUFFER_SIZE, 0);
-   		cout<<endl<<buffer<<endl;
+   		//recv(peerfd, buffer, BUFFER_SIZE, 0);
+   		//cout<<endl<<buffer<<endl;
    }
    
 
@@ -90,15 +105,14 @@ void sendChunk(FILE * fp ,int peer_fd, int chunkno)
 	memset(chunk_buffer, '\0', CHUNK_SIZE);
 	int start_address = chunkno * CHUNK_SIZE, n;
 	
-
-	n = fseek(fp, start_address, SEEK_SET);
+   n = fseek(fp, start_address, SEEK_SET);
 	if(n < 0)
 	{
 		perror("Invalid reading pointer while reading chunkno " + chunkno);
 		return;
 	}
 
-	n = fread(chunk_buffer, sizeof(char), CHUNK_SIZE, fp);
+   n  = fread(chunk_buffer, sizeof(char), CHUNK_SIZE, fp);
 	if(n < 0)
 	{
 		string error_msg = "Error while reading" + to_string(chunkno) + " chunk from file ";
@@ -106,8 +120,8 @@ void sendChunk(FILE * fp ,int peer_fd, int chunkno)
 		return;
 	}
 	cout<<"n is "<<n<<endl;
-	cout<<"Ready to send chunk "<<chunkno<<" : "<<chunk_buffer<<endl;
-	//cout<<"Ready to send chunk "<<chunkno<<endl;
+	//cout<<"Ready to send chunk "<<chunkno<<" : "<<chunk_buffer<<endl;
+	cout<<"Ready to send chunk "<<chunkno<<endl;
 	if(n==0)
 	{
 		return;

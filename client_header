@@ -9,8 +9,8 @@
 #include <pthread.h> 
 #include <cmath>
 
-#define BUFFER_SIZE 1000
-#define CHUNK_SIZE  10
+#define BUFFER_SIZE 10000
+#define CHUNK_SIZE  10000
 #define ll long long
 using namespace std;
 
@@ -23,6 +23,8 @@ void * serverthread(void *portnoadd);
 void receiveChunk (FILE * fp ,int peer_fd, int chunkno, int last_chunk, int last_chunk_size);
 
 void sendChunk (FILE * fp ,int peer_fd, int chunkno);
+
+void * sendingthread(void * peer_fd);
 
 vector<string> commandTokenize(string command);
 
