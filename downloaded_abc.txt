@@ -1,7 +1,0 @@
-012345678
-abcdefghi
-mnopqrstu
-ABCDEFGHI
-JKLMNOPQR
-987543210
-Q
