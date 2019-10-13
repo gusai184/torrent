@@ -8,11 +8,12 @@
 #include <string.h>
 #include <pthread.h> 
 #include <cmath>
+#include <openssl/sha.h>
 
-#define BUFFER_SIZE 10000
-#define CHUNK_SIZE  10000
+#define BUFFER_SIZE 100000
+#define CHUNK_SIZE  32768
 #define ll long long
-using namespace std;
+using namespace std;	
 
 void readFile(int fd, string filename, vector<int> chunks, int last_chunk, int last_chunk_size);
 
@@ -27,6 +28,8 @@ void sendChunk (FILE * fp ,int peer_fd, int chunkno);
 void * sendingthread(void * peer_fd);
 
 vector<string> commandTokenize(string command);
+
+void printSHA(const unsigned char buffer[], int n);
 
 struct  args_struct
 {

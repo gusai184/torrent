@@ -13,16 +13,19 @@ void * downloadingthread(void * args_passed)
 	struct hostent *listener_ip;
 	char buffer[BUFFER_SIZE];
 
+	//cout<<"Arg.ip "<<args.ip<<endl;
+	//cout<<"port "<<args.port<<endl;
 	listener_port = args.port;
 	filename = args.filename;
 	listener_ip = gethostbyname(args.ip.c_str());
-	chunks = args.chunks;
-  last_chunk = args.last_chunk;
-  last_chunk_size = args.last_chunk_size;
-	cout<<"chucnks size "<<chunks.size();
+ 	chunks = args.chunks;
+    last_chunk = args.last_chunk;
+    last_chunk_size = args.last_chunk_size;
+	//cout<<"chucnks size "<<chunks.size();
 	// for(auto c : chunks)
 	// 	cout<<c<<endl;
 
+	//cout<<"before listenr ip "<<endl;
     listener_fd = socket(AF_INET, SOCK_STREAM, 0);
     if (listener_fd < 0) {
     	
@@ -30,9 +33,11 @@ void * downloadingthread(void * args_passed)
         exit(1);
     }
 	
-    
+    //cout<<"listenre port is "<<listener_ip<<endl;
     if (listener_ip == NULL) {
-        fprintf(stderr,"ERROR, no such host\n");
+    	cout<<"ERROR no "<<errno<<endl;	
+    	perror("ERROR, no such host\n");
+        //fprintf(stderr,"ERROR, no such host\n");
         exit(0);
     }
 
@@ -48,24 +53,25 @@ void * downloadingthread(void * args_passed)
     }
    
     
-    n = recv(listener_fd, buffer, BUFFER_SIZE, 0);
-    if (n < 0) {
+    // n = recv(listener_fd, buffer, BUFFER_SIZE, 0);
+    // if (n < 0) {
 
-        perror("ERROR writing to socket");
-        exit(1);
-    }
+    //     perror("ERROR writing to socket");
+    //     exit(1);
+    // }
 
-    cout<<"Msg from listener "<<listener_port<< " : "<<buffer<<endl;
+    // cout<<"Msg from listener "<<listener_port<< " : "<<buffer<<endl;
 
     string file_chunks = filename;
     for(auto chunk_no : chunks)
     	file_chunks = file_chunks+" "+ to_string(chunk_no);
     
-    cout<<file_chunks<<endl;
+    strcpy(buffer, file_chunks.c_str());
+    //cout<<file_chunks<<endl;
     
-    send(listener_fd, file_chunks.c_str(), BUFFER_SIZE, 0);
+    send(listener_fd, buffer, BUFFER_SIZE, 0);
 	
-	 readFile(listener_fd, filename, chunks,last_chunk, last_chunk_size);   
+	readFile(listener_fd, filename, chunks,last_chunk, last_chunk_size);   
  	
  	return NULL;
 }
@@ -73,7 +79,7 @@ void * downloadingthread(void * args_passed)
 void readFile(int peer_fd, string filename, vector<int> chunks, int last_chunk, int last_chunk_size)
 {
    
-   FILE *fp = fopen(("downloaded_" + filename).c_str(),"r+");
+   FILE *fp = fopen(("downloaded_" + filename).c_str(),"rb+");
 
    for(int i=0;i<chunks.size();i++)
     {
@@ -98,19 +104,20 @@ void receiveChunk (FILE * fp ,int peer_fd, int chunkno, int last_chunk, int last
 		return;
 	}
 
-  if(chunkno==last_chunk)
-    n = recv(peer_fd, &chunk_buffer, last_chunk_size, 0);
-  else
-    n = recv(peer_fd, &chunk_buffer, CHUNK_SIZE, 0);
+    if(chunkno==last_chunk)
+    	n = recv(peer_fd, &chunk_buffer, last_chunk_size, 0);
+    else
+    	n = recv(peer_fd, &chunk_buffer, CHUNK_SIZE, 0);
 	
-  if(n < 0)
+    if(n < 0)
 	{
 		perror("Error while receiving chunk no " + chunkno);
 		return;
 	}
-	
+	cout<<endl;
 	cout<<"n is "<<n<<endl;
-	//cout<<"Received Chunk "<<chunkno<<" content"<<chunk_buffer<<endl;
+	//cout<<"Received Chunk "<<chunkno<<" : "<<chunk_buffer<<endl;
+	printSHA((unsigned char *)chunk_buffer, n);
 	cout<<"Received Chunk "<<chunkno<<endl;
 
 	int n1 = fwrite(chunk_buffer, sizeof(char), n, fp);
@@ -121,7 +128,7 @@ void receiveChunk (FILE * fp ,int peer_fd, int chunkno, int last_chunk, int last
 	}
 
 }
-
+	
 void download_file()
 {
 
@@ -131,51 +138,50 @@ void download_file()
 
 	//will decide what to get from each client and processed as follows : thread for client ip:port and chuncks to be downloaded
 
-	
-	int listener_port, filesize = 6399562;
-	string filename = "img.JPG";
+	cout<<"------------------"<<endl;
+	int listener_port, filesize = 592271;
+	string filename = "bird.jpg";
 	vector<int> chunks, chunks1;
 	// cout<<"Enter client 1 port where to download_file"<<endl;
 	// cin>>listener_port;
 	// cin.ignore();  
-  listener_port = 8001;
+    listener_port = 7100;
 
-	 FILE *fp = fopen(("downloaded_" + filename).c_str(),"ab");
+	FILE *fp = fopen(("downloaded_" + filename).c_str(),"wb+");
      //memset(fp, 0, filesize);
-     fclose(fp);
+	int i=0;
+	while(i<filesize)
+	{
+		fputc('0',fp);
+		i++;
+	}
+    fclose(fp);
 
-  int no_chunks = ceil((float)filesize / CHUNK_SIZE);
-  int last_chunk = no_chunks - 1;
-  int last_chunk_size = filesize - (filesize/CHUNK_SIZE) * CHUNK_SIZE;
+  	int no_chunks = ceil((float)filesize / CHUNK_SIZE);
+  	int last_chunk = no_chunks - 1;
+  	int last_chunk_size = filesize - (filesize/CHUNK_SIZE) * CHUNK_SIZE;
 
 
-  cout<<"no of chunks "<<no_chunks<<endl;
-  cout<<"Last chunk "<<last_chunk<<" "<<last_chunk_size<<endl;
-  // for(int i=no_chunks-1;i>=0;i--)
-	 //  	chunks.push_back(i);
+  	cout<<"no of chunks "<<no_chunks<<endl;
+  	cout<<"Last chunk "<<last_chunk<<" "<<last_chunk_size<<endl;
+
+  	struct args_struct *args = new struct args_struct[no_chunks];
+  	pthread_t *thread_id = new pthread_t[no_chunks];
+  	for(int i=0;i<no_chunks;i++)
+	{
+		vector<int> chunks;
+	  	chunks.push_back(i);
 	
-  for(int i=0;i<no_chunks;i++)
-     chunks.push_back(i);
-  
-  // chunks.push_back(2);
-  // chunks.push_back(5);
-  // chunks.push_back(4);
-  // chunks.push_back(6);
-  // chunks.push_back(0);
-  // chunks.push_back(3);
-  //  // chunks.push_back(1);
+		args[i].port = listener_port;
+		args[i].ip = string("127.0.0.1");
+		args[i].chunks = chunks;
+		args[i].filename = filename;
+	    args[i].last_chunk = last_chunk;
+	    args[i].last_chunk_size = last_chunk_size;
 
-	struct args_struct args, args1;
-	args.port = listener_port;
-	args.ip = "127.0.0.1";
-	args.chunks = chunks;
-	args.filename = filename;
-  args.last_chunk = last_chunk;
-  args.last_chunk_size = last_chunk_size;
-
-  pthread_t thread_id; 
-  pthread_create(&thread_id, NULL, downloadingthread, (void *)&args); 
-	
+	    
+	    pthread_create(&thread_id[i], NULL, downloadingthread, (void *)&args[i]); 
+	}
  //    int listener_port1;
 	// // cout<<"Enter client 2 port where to download_file"<<endl;
 	// // cin>>listener_port1;
@@ -194,7 +200,7 @@ void download_file()
  //  pthread_create(&thread_id1, NULL, downloadingthread, (void *)&args1); 
 
 
-	pthread_join(thread_id, NULL);
+	//spthread_join(thread_id, NULL);
 //	pthread_join(thread_id1, NULL);
 
 }

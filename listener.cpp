@@ -1,6 +1,16 @@
 #include "client_header"
 
 
+void printSHA(const unsigned char buffer[], int n)
+{
+	unsigned char hash[SHA_DIGEST_LENGTH]; // == 20
+  	SHA1(buffer, n - 1, hash);
+  	for(int i=0;i<SHA_DIGEST_LENGTH;i++)
+  		//cout<<hex<<buffer[i];
+  		printf("%0.2x",buffer[i]);
+  	cout<<endl;
+}
+
 void *serverthread(void *portnoadd)
 {
    int listener_port = *(int *)portnoadd;
@@ -40,8 +50,6 @@ void *serverthread(void *portnoadd)
          continue;
       }
 
-      
-
       pthread_t thread_id; 
       pthread_create(&thread_id, NULL, sendingthread, (void *)peer_fd_ptr); 
    }
@@ -55,10 +63,10 @@ void * sendingthread(void * peer_fd_ptr)
    string filename;
    vector<int> chunks;
    
-   cout<<"listener thread Connection established to "<<endl;
-   bzero(buffer,BUFFER_SIZE);
-   strcpy(buffer, "Connection established to listener");
-   send(peer_fd, buffer, BUFFER_SIZE , 0);
+   // cout<<"listener thread Connection established to "<<endl;
+   // bzero(buffer,BUFFER_SIZE);
+   // strcpy(buffer, "Connection established to listener");
+   // send(peer_fd, buffer, BUFFER_SIZE , 0);
 
    bzero(buffer,BUFFER_SIZE);
    recv(peer_fd, buffer, BUFFER_SIZE, 0);
@@ -66,6 +74,7 @@ void * sendingthread(void * peer_fd_ptr)
    string fd_chunks(buffer);
    cout<<"File_chunk is "<<fd_chunks<<endl;
 
+   
    vector<string> tokens = commandTokenize(fd_chunks);
 
    filename = tokens[0];
@@ -75,12 +84,13 @@ void * sendingthread(void * peer_fd_ptr)
 
    sendFile(peer_fd, filename, chunks);
 
+
 }
 
 void sendFile(int peerfd, string filename, vector<int> chunks)
 {
    char buffer[BUFFER_SIZE];
-   FILE *fp = fopen(filename.c_str(),"rb");
+   FILE *fp = fopen(filename.c_str(),"rb+");
    if(fp == NULL)
    {
    		perror("Error while opening file");
@@ -112,14 +122,17 @@ void sendChunk(FILE * fp ,int peer_fd, int chunkno)
 		return;
 	}
 
-   n  = fread(chunk_buffer, sizeof(char), CHUNK_SIZE, fp);
+    n  = fread(chunk_buffer, sizeof(char), CHUNK_SIZE, fp);
 	if(n < 0)
 	{
 		string error_msg = "Error while reading" + to_string(chunkno) + " chunk from file ";
 		perror(error_msg.c_str());
 		return;
 	}
+
+	cout<<endl;
 	cout<<"n is "<<n<<endl;
+	printSHA((unsigned char *)chunk_buffer,	n);	
 	//cout<<"Ready to send chunk "<<chunkno<<" : "<<chunk_buffer<<endl;
 	cout<<"Ready to send chunk "<<chunkno<<endl;
 	if(n==0)
@@ -134,6 +147,8 @@ void sendChunk(FILE * fp ,int peer_fd, int chunkno)
 	}
 
 }
+
+
 
 vector<string> commandTokenize(string command)
 {
