@@ -1,8 +1,9 @@
 #include "client_header"
 
 
-void printSHA(const unsigned char buffer[], int n)
+void printSHA(const unsigned char buffer[], int n, int chunk_no)
 {
+	cout<<chunk_no<<" : "<<n<<" : ";
 	unsigned char hash[SHA_DIGEST_LENGTH]; // == 20
   	SHA1(buffer, n - 1, hash);
   	for(int i=0;i<SHA_DIGEST_LENGTH;i++)
@@ -130,22 +131,34 @@ void sendChunk(FILE * fp ,int peer_fd, int chunkno)
 		return;
 	}
 
-	cout<<endl;
-	cout<<"n is "<<n<<endl;
-	printSHA((unsigned char *)chunk_buffer,	n);	
-	//cout<<"Ready to send chunk "<<chunkno<<" : "<<chunk_buffer<<endl;
-	cout<<"Ready to send chunk "<<chunkno<<endl;
 	if(n==0)
 	{
 		return;
 	}
-	n = send(peer_fd, chunk_buffer, n, 0);
-	if(n < 0)
+
+	int n1 = send(peer_fd, chunk_buffer, n, 0);
+
+	if(n1 < 0)
 	{
 		perror("Error while sending chunkno " + chunkno);
 		return;
 	}
 
+
+	// int total=0;
+	// int size = n;
+	// while(total < size)
+	// {
+	// 	int n1 = send(peer_fd, chunk_buffer+total, size - total, 0);
+	// 	if(n1 < 0)
+	// 	{
+	// 		perror("Error while sending chunkno " + chunkno);
+	// 		return;
+	// 	}
+	// 	total = total + n1;
+	// }
+
+	printSHA((unsigned char *)chunk_buffer,	n1, chunkno);	
 }
 
 

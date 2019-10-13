@@ -12,6 +12,7 @@
 
 #define BUFFER_SIZE 100000
 #define CHUNK_SIZE  32768
+
 #define ll long long
 using namespace std;	
 
@@ -29,7 +30,7 @@ void * sendingthread(void * peer_fd);
 
 vector<string> commandTokenize(string command);
 
-void printSHA(const unsigned char buffer[], int n);
+void printSHA(const unsigned char buffer[], int n, int chunk_no);
 
 struct  args_struct
 {
