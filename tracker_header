@@ -11,7 +11,10 @@
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
-#define BUFFER_SIZE 256
+#include <openssl/sha.h>
+
+#define BUFFER_SIZE 100000
+#define CHUNK_SIZE  32768
 using namespace std;
 
 class Group;
@@ -24,7 +27,7 @@ class User
 		bool isOnline;
 		vector<string> groups;
 		struct sockaddr_in address; 
-
+		int listenerport;
 	public:
 		bool containsGroup(string gid)
 		{			
@@ -43,10 +46,12 @@ class User
 class Group
 {
 	public:
-		string gid;
+		string gid;	
 		string owner;
 		vector<string> members;	//member user ids
 		vector<string> requests; //peding joing requests
+		unordered_map<string,pair<string,long long int>> filehash_map;
+		unordered_map<string,vector<string>> hashuser_map;
 
 	public:
 		bool containsUser(string uid)
@@ -78,5 +83,10 @@ string listRequests(vector<string> tokens);
 
 void logout();
 
+void printHash(string hash);
+
 string listGroups();
 
+void printUsers();
+
+void printGroups();

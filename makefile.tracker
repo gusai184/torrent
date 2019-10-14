@@ -1,13 +1,13 @@
 all:tracker
 
 tracker: tracker.o commands.o
-	g++ tracker.o commands.o -o  tracker
+	g++ tracker.o commands.o -o  tracker -lssl -lcrypto
 
 tracker.o: tracker.cpp
 	g++ -c tracker.cpp
 
 commands.o: commands.cpp
-	g++ -c commands.cpp
+	g++ -c commands.cpp -lssl -lcrypto
 
 r:
 	rm tracker.o commands.o 

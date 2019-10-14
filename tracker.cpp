@@ -8,9 +8,9 @@ unordered_map<int, struct sockaddr_in> fdsockmap;
  		perror("Error while seding data");
  	}
  }
-int main( int argc, char *argv[] ) {
+  int main( int argc, char *argv[] ) {
    int tracker_fd, client_fd, portno, clilen;
-   char buffer[256];		
+   char buffer[BUFFER_SIZE];		
    struct sockaddr_in server_address, client_address;
    int  n;
    
@@ -24,7 +24,7 @@ int main( int argc, char *argv[] ) {
    
    /* Initialize socket structure */
    bzero((char *) &server_address, sizeof(server_address));
-   portno = 5000;
+   portno = stoi(argv[1]);
    
    server_address.sin_family = AF_INET;
    server_address.sin_addr.s_addr = INADDR_ANY;
@@ -95,8 +95,8 @@ int main( int argc, char *argv[] ) {
             if(n==0)
             {
 
-				struct sockaddr_in client_address = fdsockmap[client_fd];
-				cout << "client disconnected : "<<inet_ntoa(client_address.sin_addr) <<" : "<< ntohs(client_address.sin_port) <<endl;           		
+			      	struct sockaddr_in client_address = fdsockmap[client_fd];
+				      cout << "client disconnected : "<<inet_ntoa(client_address.sin_addr) <<" : "<< ntohs(client_address.sin_port) <<endl;           		
            		close(client_fd);
            		clients.erase(clients.begin() + i);             		
             }
@@ -108,7 +108,7 @@ int main( int argc, char *argv[] ) {
     		    } 
     		    else
     		    {
-              	cout<<"Got message "<<buffer<<endl;
+              	//cout<<"Got message "<<buffer<<endl;
                 try{
                   string msg = executeCommand(string(buffer), client_fd);
                   //cout<<msg<<endl;
@@ -120,7 +120,7 @@ int main( int argc, char *argv[] ) {
                 {
                 //  cout<<"Erro : "<<error_msg<<endl;
                   int n = send(client_fd,error_msg.c_str(), error_msg.length(),0);
-            	  errorchecking(n);
+            	    errorchecking(n);
                 }
             }
         }

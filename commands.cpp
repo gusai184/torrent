@@ -1,9 +1,82 @@
 #include "tracker_header"
+#include <openssl/sha.h>
 
 extern unordered_map<int, struct sockaddr_in> fdsockmap;
 unordered_map <string, User> usermap;
 unordered_map <string, Group> groupmap;
 string current_user;
+
+//this is for testing only
+string printdummyHash(string filename)
+{
+	FILE *fp = fopen(filename.c_str(), "rb");	
+	int n, no_chunks=0;
+	string filehash = "";
+	char chunk_buffer[CHUNK_SIZE];
+
+	if(fp == NULL)
+	{
+		perror("file not found");
+		return "error";	
+	}
+
+	while((n = fread(chunk_buffer, sizeof(char), CHUNK_SIZE, fp)) > 0)
+	{			
+		unsigned char hash[SHA_DIGEST_LENGTH]; 
+  		SHA1((const unsigned char *)chunk_buffer, n - 1, hash);
+  		//for(int i=0;i<SHA_DIGEST_LENGTH;i++)
+	  	//	printf("%0.2x",hash[i]);
+	  	//cout<<endl;
+	  	filehash += (char *)hash;
+  	}
+  	return filehash;
+}
+
+void init()
+{
+
+	User u1;
+	u1.username = "c1";
+	u1.password = "123";
+	u1.groups.push_back("g1");
+	u1.isOnline = false;
+
+	User u2;
+	u2.username = "c2";
+	u2.password = "123";
+	u2.isOnline = false;
+
+	User u3;
+	u3.username = "c3";
+	u3.password = "123";
+	u3.isOnline = false;
+
+
+	User u4;
+	u4.username = "c4";
+	u4.password = "123";
+	u4.isOnline = false;
+
+	usermap[u1.username] = u1;
+	usermap[u2.username] = u2;
+	usermap[u3.username] = u3;
+	usermap[u4.username] = u4;
+	
+	Group g1;
+	g1.gid = "g1";
+	g1.owner = "c1";
+	g1.members.push_back("c1");
+	g1.members.push_back("c2");
+	g1.members.push_back("c3");
+	g1.members.push_back("c4");
+	// g1.filehash_map["img.jpg"].first = printdummyHash("img.jpg");
+	// g1.hashuser_map[printdummyHash("img.jpg")].push_back("c2");
+	// g1.hashuser_map[printdummyHash("img.jpg")].push_back("c3");
+	groupmap[g1.gid] = g1;
+
+	printUsers();
+	printGroups();
+}
 
 vector<string> commandTokenize(string command)
 {
@@ -57,13 +130,14 @@ void createUser(vector<string> tokens, int fd)
 
 void authenticateUser(vector<string> tokens, int fd)
 {
-	if(tokens.size() != 3)
+	if(tokens.size() != 4)
 	{
 		throw string("Invalid arguments");
 	}
 
 	string username = tokens[1];
 	string password = tokens[2];
+	int listenerport = stoi(tokens[3]);
 	
 	if(usermap.find(username) == usermap.end())
 	{
@@ -77,6 +151,7 @@ void authenticateUser(vector<string> tokens, int fd)
 		current_user = username;
 		user.address = fdsockmap[fd];
 		user.isOnline = true;
+		user.listenerport = listenerport;
 		usermap[username] = user;
 	}
 
@@ -120,6 +195,10 @@ string listRequests(vector<string> tokens)
 
 void acceptRequests(vector<string> tokens)
 {
+
+	if(tokens.size() != 3)
+	    throw string("Invalid arguments.");
+	
 	string gid = tokens[1];
 	string uid = tokens[2];
 	int i;
@@ -250,48 +329,41 @@ void printGroups()
 	cout<<"Groupt details are "<<endl;
 	for(auto grp : groupmap)
 	{
-		cout<<grp.first<<" : "<<grp.second.owner<<" ";
+		cout<<grp.first<<" : "<<grp.second.owner<<" : ";
+		
+		cout<<endl<<"member : ";
 		for(auto mem : grp.second.members)
-		{
 			cout<<mem<<" ";
+
+		cout<<endl<<"file hash pair "<<endl;
+		for(auto filehash_map : grp.second.filehash_map)
+		{
+			cout<<" : "<<filehash_map.first<<" = ";
+			cout<<"file size is "<<filehash_map.second.second<<" ";
+			printHash(filehash_map.second.first.c_str());
 		}
+
+		cout<<endl<<"hash members pair "<<endl;
+		for(auto hashuser_map : grp.second.hashuser_map)
+		{
+			cout<<" : ";
+			printHash(hashuser_map.first);
+			cout<<" = ";
+			for(auto user : hashuser_map.second)
+				cout<<" "<<user;
+			cout<<endl;
+		}
+
 	}
 	cout<<endl;
 }
 
-void init()
+inline void printHash(string hash)
 {
-
-	User u1;
-	u1.username = "dhamo";
-	u1.password = "123";
-	u1.groups.push_back("g1");
-	u1.isOnline = false;
-
-	User u2;
-	u2.username = "xyz";
-	u2.password = "123";
-	u2.isOnline = false;
-
-	User u3;
-	u3.username = "smit";
-	u3.password = "123";
-	u3.isOnline = false;
-
-	usermap[u1.username] = u1;
-	usermap[u2.username] = u2;
-	usermap[u3.username] = u3;
-	
-	Group g1;
-	g1.gid = "g1";
-	g1.owner = "dhamo";
-	g1.members.push_back("dhamo");
-
-	groupmap[g1.gid] = g1;
-
-	printUsers();
-	printGroups();
+  	for(int i=0;i<hash.length();i++)
+  		printf("%0.2x",(unsigned char )hash[i]);
 }
+
 
 
 string getCurrentUser(struct sockaddr_in client_address)
@@ -307,6 +379,78 @@ string getCurrentUser(struct sockaddr_in client_address)
 	return string("Annonymous");
 }
 
+void uploadFile(vector<string> tokens, string command)
+{
+	
+	if(tokens.size() < 4)
+		throw string("Invalid arguments.");
+
+	if(current_user == "")
+		throw string("You need to login first to execute this command");
+	
+	string filename = tokens[1];
+	string gid = tokens[2];
+	string filesize = tokens[3];
+	string hash = command.substr(command.find("hashkey") + 7);
+
+	if(groupmap.find(gid) == groupmap.end()) 
+		throw string("Invalid grouop id");
+
+	Group group = groupmap[gid];
+
+	if(group.containsUser(current_user) == false)
+		throw string("You are not a memeber of this group. Join Group first to upload file");
+
+	group.filehash_map[filename].first = hash;
+	group.filehash_map[filename].second = stoll(filesize);
+	group.hashuser_map[hash].push_back(current_user);
+
+	groupmap[gid] = group;
+}
+
+string downloadFile(vector<string> tokens)
+{
+	if(current_user == "")
+		throw string("You need to login first to execute this command");
+
+	if(tokens.size() != 4)
+		throw string("Invalid arguments.");
+
+	
+	string gid = tokens[1];
+	string filename = tokens[2];
+
+
+	if(groupmap.find(gid) == groupmap.end())
+		throw string("Invalid group id");
+
+	Group group = groupmap[gid];
+
+	if(group.filehash_map.find(filename) == group.filehash_map.end())
+		throw string("Invalid file name");
+
+	string hash = group.filehash_map[filename].first;
+	long long int  filesize = group.filehash_map[filename].second;
+
+	vector<string> users = group.hashuser_map[hash];
+
+	string clients = "file " + to_string(filesize);
+
+
+	for(auto uid : users)
+	{
+		User usr = usermap[uid];
+		if(usr.isOnline)
+		{
+			struct sockaddr_in sa = usr.address;
+			char str[INET_ADDRSTRLEN];
+			inet_ntop(AF_INET, &(sa.sin_addr), str, INET_ADDRSTRLEN);
+			clients += " " +string(str) + ":" + to_string(usr.listenerport);
+		}
+	}
+	clients += " hashkey" + hash;
+	return clients;
+}
 
 string executeCommand(string command, int client_fd)
 {
@@ -320,7 +464,7 @@ string executeCommand(string command, int client_fd)
 	{
 		current_user = "";
 	}
-
+	cout<<command;
 	try
 	{
 		vector<string> tokens = commandTokenize(command);
@@ -333,7 +477,8 @@ string executeCommand(string command, int client_fd)
 			success_msg = "User account created successfully";		
 		}
 		else if(command_name == "login")
-		{		
+		{
+			cout<<tokens.size()<<"is tokens szie ";
 			authenticateUser(tokens, client_fd);
 			success_msg = "Logged in successfully";		
 		}
@@ -362,18 +507,24 @@ string executeCommand(string command, int client_fd)
 			acceptRequests(tokens);
 			success_msg = "Requests accepted successfully";
 		}
+		else if(command_name == "upload_file")
+		{
+			uploadFile(tokens, command);
+			printGroups();
+			success_msg = "File uploaded successfully";
+		}
 		else if(command_name == "logout")
 		{
 			logout();
 			success_msg = "Logged out successfullly";
 		}
-		else if(command_name == "exit")
+		else if(command_name == "download_file")
 		{
-			exit(1);
+			success_msg = downloadFile(tokens);
 		}
 		else
 		{
-			success_msg = "Invalid Command";
+			success_msg = "Invalid command";
 		}
 	}catch(string error_msg)
 	{

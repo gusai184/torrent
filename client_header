@@ -1,11 +1,14 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <vector>
+#include <unordered_map>
+#include <algorithm>
 #include <unistd.h>
 #include <netdb.h>
 #include <netinet/in.h>
 #include <iostream>
 #include <string.h>
+#include <stdlib.h>
 #include <pthread.h> 
 #include <cmath>
 #include <openssl/sha.h>
@@ -32,6 +35,8 @@ vector<string> commandTokenize(string command);
 
 void printSHA(const unsigned char buffer[], int n, int chunk_no);
 
+string calcuteHash(string filename);
+
 struct  args_struct
 {
 	string filename;
@@ -41,3 +46,11 @@ struct  args_struct
 	int last_chunk;
 	int last_chunk_size;
 };
+
+class Peer
+{
+	public:
+	string ip;
+	int port;
+	vector<int> chunks;
+};	

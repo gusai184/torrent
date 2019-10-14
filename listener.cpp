@@ -1,5 +1,13 @@
 #include "client_header"
 
+extern unordered_map<string, vector<int>> hashchunks_map;
+extern unordered_map<string, string> hashfile_map;
+
+inline void printHash(string hash)
+{
+  	for(int i=0;i<hash.length();i++)
+  		printf("%0.2x",(unsigned char )hash[i]);
+}
 
 void printSHA(const unsigned char buffer[], int n, int chunk_no)
 {
@@ -8,7 +16,7 @@ void printSHA(const unsigned char buffer[], int n, int chunk_no)
   	SHA1(buffer, n - 1, hash);
   	for(int i=0;i<SHA_DIGEST_LENGTH;i++)
   		//cout<<hex<<buffer[i];
-  		printf("%0.2x",buffer[i]);
+  		printf("%0.2x",hash[i]);
   	cout<<endl;
 }
 
@@ -50,7 +58,7 @@ void *serverthread(void *portnoadd)
          perror("ERROR on acceptingg peer request");
          continue;
       }
-
+      cout<<"Connection established in listener "<<endl;
       pthread_t thread_id; 
       pthread_create(&thread_id, NULL, sendingthread, (void *)peer_fd_ptr); 
    }
@@ -64,27 +72,64 @@ void * sendingthread(void * peer_fd_ptr)
    string filename;
    vector<int> chunks;
    
-   // cout<<"listener thread Connection established to "<<endl;
+    cout<<"listener thread Connection established to "<<endl;
    // bzero(buffer,BUFFER_SIZE);
    // strcpy(buffer, "Connection established to listener");
    // send(peer_fd, buffer, BUFFER_SIZE , 0);
 
-   bzero(buffer,BUFFER_SIZE);
-   recv(peer_fd, buffer, BUFFER_SIZE, 0);
 
-   string fd_chunks(buffer);
-   cout<<"File_chunk is "<<fd_chunks<<endl;
+   //Receive chunkst to be sent 
+    bzero(buffer,BUFFER_SIZE);
+    int n = recv(peer_fd, buffer, BUFFER_SIZE, 0);
+    if(n < 0)
+   	{
+   	   	 perror("Error while sending");
+   	   	 return NULL;
+   	}
 
-   
-   vector<string> tokens = commandTokenize(fd_chunks);
+   string bufferhash(buffer), chunks_stg="";
+   if(bufferhash.find("hash") != string::npos)
+   {
+   		string hash = bufferhash.substr(bufferhash.find("hash")+4);
+   		//cout<<"HASH REQUEST CAME :"<<hash<<":";
+  		//printHash(hash);
+   		if(hashchunks_map.find(hash)==hashchunks_map.end())
+   		{
+   			 chunks_stg = "ERROR : HASH NOT FOUND";
+   			 cout<<"hash not found";
+   		}
+   		else
+   		{
+	   		vector<int> chunks = hashchunks_map[hash];
+	   		for(int i=0;i<chunks.size();i++)
+	   		{	   			
+	   			chunks_stg = chunks_stg + to_string(chunks[i]) + " ";
+	   		}
+	   		
+	   		//cout<<"chunks vector size is "<<chunks.size()<<endl;
+   	   }
+   	   //cout<<"chunk stg"<<chunks_stg<<"is chunks"<<endl;
+   	   int n =send(peer_fd, chunks_stg.c_str(), chunks_stg.length(), 0);
+   	   if(n < 0)
+   	   {
+   	   	 perror("Error while sending");
+   	   	 return NULL;
+   	   }
+   }
+   else
+   {
+	   string fd_chunks(buffer);
+	   cout<<"File_chunk is "<<fd_chunks<<endl;
+	   
+	   vector<string> tokens = commandTokenize(fd_chunks);
 
-   filename = tokens[0];
-   
-   for(ll i=1;i<tokens.size();i++)
-         chunks.push_back(stoi(tokens[i]));
+	   filename = tokens[0];
+	   
+	   for(ll i=1;i<tokens.size();i++)
+	         chunks.push_back(stoi(tokens[i]));
 
-   sendFile(peer_fd, filename, chunks);
-
+	   sendFile(peer_fd, filename, chunks);
+	}
 
 }
 
