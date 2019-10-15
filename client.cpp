@@ -21,8 +21,8 @@ void * downloadingthread(void * args_passed)
 	filename = args.filename;
 	listener_ip = gethostbyname(args.ip.c_str());
  	chunks = args.chunks;
-    last_chunk = args.last_chunk;
-    last_chunk_size = args.last_chunk_size;
+  last_chunk = args.last_chunk;
+  last_chunk_size = args.last_chunk_size;
 	//cout<<"chucnks size "<<chunks.size();
 	// for(auto c : chunks)
 	// 	cout<<c<<endl;
@@ -60,7 +60,7 @@ void * downloadingthread(void * args_passed)
     strcpy(buffer, file_chunks.c_str());
     cout<<file_chunks<<endl;
     
-     n = send(listener_fd, buffer, BUFFER_SIZE, 0);
+    n = send(listener_fd, buffer, BUFFER_SIZE, 0);
     if(n<0)
     {
       perror("Error while sending data");
@@ -73,7 +73,13 @@ void * downloadingthread(void * args_passed)
 void readFile(int peer_fd, string filename, vector<int> chunks, int last_chunk, int last_chunk_size)
 {
    
-   FILE *fp = fopen(("downloaded_" + filename).c_str(),"rb+");
+   FILE *fp = fopen((filename).c_str(),"rb+");
+   if(fp == NULL)
+   {
+      cout<<filename<<endl;
+      perror("Unable to open file");
+      return;
+   }
 
    for(int i=0;i<chunks.size();i++)
     {
@@ -194,7 +200,7 @@ vector<int> getChunksFromPeer(string ip, int port,string hash)
   n =recv(listener_fd, buffer, BUFFER_SIZE, 0);
   if(n < 0)
   {
-    perror("Error while receiving data");
+      perror("Error while receiving data");
     return chunks;
   }
 
@@ -330,7 +336,7 @@ void download_file(string filename, string gid, string buffer, int tracker_fd)
 	vector<int> chunks;
 	listener_port = 7000;
 
-	FILE *fp = fopen(("downloaded_" + filename).c_str(),"wb+");
+	FILE *fp = fopen((filename).c_str(),"wb+");
 	int i=0;
 	while(i<filesize)
 	{
@@ -564,7 +570,7 @@ string calcuteHash(string filename)
   	hashfile_map[filehash] = filename;
   	fclose(fp);
 	
-	return filehash;
+	  return filehash;
 }
 
 

@@ -86,13 +86,17 @@ void * sendingthread(void * peer_fd_ptr)
    	   	 perror("Error while sending");
    	   	 return NULL;
    	}
-
+   	cout<<"unordered_map ";
+   	for(auto x: hashchunks_map)
+   	{
+   		cout<<x.first<<" : "<<x.second.size()<<endl;
+   	}
    string bufferhash(buffer), chunks_stg="";
    if(bufferhash.find("hash") != string::npos)
    {
    		string hash = bufferhash.substr(bufferhash.find("hash")+4);
-   		//cout<<"HASH REQUEST CAME :"<<hash<<":";
-  		//printHash(hash);
+   		cout<<"HASH REQUEST CAME :";//<<hash<<":";
+  		printHash(hash);
    		if(hashchunks_map.find(hash)==hashchunks_map.end())
    		{
    			 chunks_stg = "ERROR : HASH NOT FOUND";
