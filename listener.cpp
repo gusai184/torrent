@@ -1,7 +1,7 @@
 #include "client_header"
 
 extern unordered_map<string, vector<int>> hashchunks_map;
-extern unordered_map<string, string> hashfile_map;
+extern unordered_map<string, string> filehash_map;
 
 inline void printHash(string hash)
 {
@@ -86,21 +86,19 @@ void * sendingthread(void * peer_fd_ptr)
    	   	 perror("Error while sending");
    	   	 return NULL;
    	}
-   	cout<<"unordered_map ";
-   	for(auto x: hashchunks_map)
-   	{
-   		cout<<x.first<<" : "<<x.second.size()<<endl;
-   	}
+
    string bufferhash(buffer), chunks_stg="";
-   if(bufferhash.find("hash") != string::npos)
+   if(bufferhash.find("file") != string::npos)
    {
-   		string hash = bufferhash.substr(bufferhash.find("hash")+4);
-   		cout<<"HASH REQUEST CAME :";//<<hash<<":";
-  		printHash(hash);
+   		string file = bufferhash.substr(bufferhash.find("file")+4);
+   		cout<<"file REQUEST CAME :"<<file<<endl;
+   		string hash = filehash_map[file];
+
+  		//printHash(hash);
    		if(hashchunks_map.find(hash)==hashchunks_map.end())
    		{
-   			 chunks_stg = "ERROR : HASH NOT FOUND";
-   			 cout<<"hash not found";
+   			 chunks_stg = "error : HASH NOT FOUND";
+   			 cout<<"file not found";
    		}
    		else
    		{
@@ -108,8 +106,7 @@ void * sendingthread(void * peer_fd_ptr)
 	   		for(int i=0;i<chunks.size();i++)
 	   		{	   			
 	   			chunks_stg = chunks_stg + to_string(chunks[i]) + " ";
-	   		}
-	   		
+	   		}	   		
 	   		//cout<<"chunks vector size is "<<chunks.size()<<endl;
    	   }
    	   //cout<<"chunk stg"<<chunks_stg<<"is chunks"<<endl;
@@ -123,7 +120,7 @@ void * sendingthread(void * peer_fd_ptr)
    else
    {
 	   string fd_chunks(buffer);
-	   cout<<"File_chunk is "<<fd_chunks<<endl;
+	   //cout<<"File_chunk is "<<fd_chunks<<endl;
 	   
 	   vector<string> tokens = commandTokenize(fd_chunks);
 
@@ -150,8 +147,6 @@ void sendFile(int peerfd, string filename, vector<int> chunks)
    for(ll i=0;i<chunks.size();i++)
    {
    		sendChunk(fp, peerfd, chunks[i]); 
-   		//recv(peerfd, buffer, BUFFER_SIZE, 0);
-   		//cout<<endl<<buffer<<endl;
    }
    
 

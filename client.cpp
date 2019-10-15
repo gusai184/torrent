@@ -1,7 +1,7 @@
 #include "client_header"
 
 unordered_map<string, vector<int>> hashchunks_map;
-unordered_map<string, string> hashfile_map;
+unordered_map<string, string> filehash_map;
 
 void * downloadingthread(void * args_passed)
 {
@@ -115,21 +115,21 @@ void receiveChunk (FILE * fp ,int peer_fd, int chunkno, int last_chunk, int last
     	if(chunkno==last_chunk)
     		n = recv(peer_fd, &chunk_buffer, last_chunk_size, 0);
     	else	
-			n = recv(peer_fd, &chunk_buffer, CHUNK_SIZE, 0);
+		  	n = recv(peer_fd, &chunk_buffer, CHUNK_SIZE, 0);
 	    
 	    if(n < 0)
-		{
-			perror("Error while receiving chunk no " + chunkno);
-			return;
-		}
+  	 	{
+  			perror("Error while receiving chunk no " + chunkno);
+  			return;
+  		}
 
-		int n1 = fwrite(chunk_buffer, sizeof(char), n, fp);
-		if(n1 < 0)
-		{
-			perror("Error while writing chunk to file " + chunkno);
-			return;
-		}
-		len = len + n;
+  		int n1 = fwrite(chunk_buffer, sizeof(char), n, fp);
+  		if(n1 < 0)
+  		{
+  			perror("Error while writing chunk to file " + chunkno);
+  			return;
+  		}
+  		len = len + n;
 	}
 	printSHA((unsigned char *)chunk_buffer, size, chunkno);
 }
@@ -160,8 +160,7 @@ vector<int> getChunksFromPeer(string ip, int port,string hash)
   char buffer[BUFFER_SIZE];
   vector<int> chunks;
 
-  cout<<"ip "<<ip<<endl;
-  cout<<"port "<<port<<endl;
+  cout<<"Getting Chunk details from Ip "<<ip<<" "<<" Port "<<port<<endl;
 
   int listener_port = port;
   listener_ip = gethostbyname(ip.c_str());
@@ -188,7 +187,7 @@ vector<int> getChunksFromPeer(string ip, int port,string hash)
       perror("ERROR connecting");
       return chunks;
   }
-  hash = "hash"+hash;
+  hash = "file"+hash;
   n = send(listener_fd, hash.c_str(), BUFFER_SIZE, 0);
   if(n < 0)
   {
@@ -200,19 +199,13 @@ vector<int> getChunksFromPeer(string ip, int port,string hash)
   n =recv(listener_fd, buffer, BUFFER_SIZE, 0);
   if(n < 0)
   {
-      perror("Error while receiving data");
+    perror("Error while receiving data");
     return chunks;
   }
 
   //cout << "Got Chunks "<<buffer<<endl;
   vector<string> chunks_stg = commandTokenize(buffer);
       
-  if(chunks_stg[0] == "hash")
-  {
-    cout<<"peer has no hash"<<endl;
-    return chunks;
-  }
-
   try{
     for(int i=0;i<chunks_stg.size();i++)
     {
@@ -223,7 +216,7 @@ vector<int> getChunksFromPeer(string ip, int port,string hash)
   }
   catch(...)
   {
-    cout<<"Peer no have file"<<endl;
+    cout<<"Peer do no have file"<<endl;
     throw string("Peer no have file");
   }
 
@@ -263,44 +256,44 @@ void download_file(string filename, string gid, string buffer, int tracker_fd)
 
   for(int i=0;i<peer1.size();i++)
   {
-     peer1[i].chunks = getChunksFromPeer(peer1[i].ip, peer1[i].port, hash);
+     peer1[i].chunks = getChunksFromPeer(peer1[i].ip, peer1[i].port, filename);
   }
-  
+  no_peers = peer1.size();
   for(int i=0;i<no_chunks;i++)
   {
     vector<int> v;
     chunkset[i] = {i,v};
   }
 
-  cout<<"peer details is "<<endl;
+  //cout<<"peer details is "<<endl;
   for(int i=0;i<peer1.size();i++)
   {
-     cout<<peer1[i].ip<<" : "<<peer1[i].port<<" : ";
+     //cout<<peer1[i].ip<<" : "<<peer1[i].port<<" : ";
      for(auto c : peer1[i].chunks)
       {
         chunkset[c].second.push_back(i);
-        cout<<c<<" ";
+        //cout<<c<<" ";
       }
   }
-  cout<<"chunkset is "<<endl;
-  for(int i=0;i<chunkset.size();i++)
-  {
-    cout<<chunkset[i].first<<" : ";
-    for(auto p : chunkset[i].second)
-      cout<<p<<" ";
-    cout<<endl;
-  }
+  //cout<<"chunkset is "<<endl;
+  // for(int i=0;i<chunkset.size();i++)
+  // {
+  //   //cout<<chunkset[i].first<<" : ";
+  //   for(auto p : chunkset[i].second)
+  //     cout<<p<<" ";
+  //   cout<<endl;
+  // }
 
-  sort(chunkset.begin(), chunkset.end());
+  //sort(chunkset.begin(), chunkset.end());
 
-  cout<<"After sorting chunkset is "<<endl;
-  for(int i=0;i<chunkset.size();i++)
-  {
-    cout<<chunkset[i].first<<" : ";
-    for(auto p : chunkset[i].second)
-      cout<<p<<" ";
-    cout<<endl;
-  }
+  // cout<<"After sorting chunkset is "<<endl;
+  // for(int i=0;i<chunkset.size();i++)
+  // {
+  //  // cout<<chunkset[i].first<<" : ";
+  //   for(auto p : chunkset[i].second)
+  //     cout<<p<<" ";
+  //   cout<<endl;
+  // }
 
   //Modified Rarest piece selection algorithm
   //pic piece from rear to most occurs and select peer randomely
@@ -331,27 +324,25 @@ void download_file(string filename, string gid, string buffer, int tracker_fd)
 
 	//will decide what to get from each client and processed as follows : thread for client ip:port and chuncks to be downloaded
 
-	cout<<"------------------"<<endl;
-	int listener_port, listener_port1;
-	vector<int> chunks;
-	listener_port = 7000;
+  	
+  	int listener_port, listener_port1;
+  	vector<int> chunks;
+  	listener_port = 7000;
 
-	FILE *fp = fopen((filename).c_str(),"wb+");
-	int i=0;
-	while(i<filesize)
-	{
-		fputc('0',fp);
-		i++;
-	}
-  fclose(fp);
+  	FILE *fp = fopen((filename).c_str(),"wb+");
+  	int i=0;
+  	while(i<filesize)
+  	{
+  		fputc('0',fp);
+  		i++;
+  	}
+    fclose(fp);
 
-  
   	int last_chunk = no_chunks - 1;
   	int last_chunk_size = filesize - (filesize/CHUNK_SIZE) * CHUNK_SIZE;
 
-
-  	cout<<"no of chunks "<<no_chunks<<endl;
-  	cout<<"Last chunk "<<last_chunk<<" "<<last_chunk_size<<endl;
+   // cout<<"no of chunks "<<no_chunks<<endl;
+  	//cout<<"Last chunk "<<last_chunk<<" "<<last_chunk_size<<endl;
 
 
   	struct args_struct *args = new struct args_struct[no_peers];
@@ -370,9 +361,7 @@ void download_file(string filename, string gid, string buffer, int tracker_fd)
 	    pthread_create(&thread_id[i], NULL, downloadingthread, (void *)&args[i]); 
 	  }
     
-    for(int i=0;i<no_peers;i++) 
-	  	pthread_join(thread_id[i], NULL);
- 
+   
      cout<<"File downloaded successfully"<<endl;
       
       char buffer1[BUFFER_SIZE];
@@ -398,9 +387,12 @@ void download_file(string filename, string gid, string buffer, int tracker_fd)
         chunks.push_back(i);
       
       hashchunks_map[hash] = chunks;
-      hashfile_map[hash] = filename;
+      filehash_map[filename] = hash;
 
-      cout<<"filehash updated"<<endl;
+      for(int i=0;i<no_peers;i++) 
+        pthread_join(thread_id[i], NULL);
+ 
+    
   }
   catch(...)
   {
@@ -453,7 +445,7 @@ int main(int argc, char *argv[]) {
       perror("ERROR connecting");
       exit(1);
    }
-   cout<<"reached "<<endl;
+
    n = recv(tracker_fd, buffer, BUFFER_SIZE, 0);
   
    if (n < 0) {
@@ -461,7 +453,7 @@ int main(int argc, char *argv[]) {
       exit(1);
    }
    
-   cout<<"Msg from tracker_ip "<<buffer<<":";
+   cout<<"Msg from tracker_ip "<<buffer<<":"<<endl;
  
    while(1)
    {
@@ -558,8 +550,8 @@ string calcuteHash(string filename)
 	  	no_chunks++;
   	}
 
-  	for(int i=0;i<filehash.length();i++)
-  		printf("%0.2x",(unsigned char )filehash[i]);
+  	// for(int i=0;i<filehash.length();i++)
+  	// 	printf("%0.2x",(unsigned char )filehash[i]);
 
   	vector<int> chunks;
 
@@ -567,7 +559,7 @@ string calcuteHash(string filename)
   		chunks.push_back(i);
     
     hashchunks_map[filehash] = chunks;
-  	hashfile_map[filehash] = filename;
+  	filehash_map[filename] = filehash;
   	fclose(fp);
 	
 	  return filehash;
