@@ -3,9 +3,9 @@ File sharing system with fallback multi-tracker system with synchronization and 
 
 Features Implemented:
 
-1.Multi-Tracker(Server) to serve request for all clients.
-2.User Authentication
-3.File sharing visibility to specific Group and Users
-4.Piece Selection Algorithm to balance Load Sharing
-5.Compatabile to run on Local Host and different IP and Ports provided by User
+- Multi-Tracker(Server) to serve request for all clients.
+- User Authentication
+- File sharing visibility to specific Group and Users
+- Piece Selection Algorithm to balance Load Sharing
+- Compatabile to run on Local Host and different IP and Ports provided by User
 
